@@ -95,6 +95,7 @@ class MiniPavi {
 	const MSK_CORRECTION = 32;
 	const MSK_SUITE = 64;
 	const MSK_ENVOI = 128;
+	const MSK_AUTOSEND = 256;
 
 	const MINIPAVI_LOGFILE = './';
 
@@ -741,12 +742,17 @@ class MiniPavi {
 								if ($this->count<$this->command->param->l) {
 									if (($code>=32 && $code<127) || $input==self::VDT_G2 || $code==8) {
 										@$this->buffer[$this->bufferIdx].=$input;
-										if ($this->echo)
+										if ($this->echo && ($this->command->param->validwith & self::MSK_AUTOSEND)==0)
 											if ($altChar!='') $this->addToBufferOut($altChar);
 											else $this->addToBufferOut($input);
 									}
 									$this->count = mb_strlen(self::fromG2(@$this->buffer[$this->bufferIdx]));
 									$this->currX+=($this->count-$oldLength);
+									
+									if($this->count>0 && ($this->command->param->validwith & self::MSK_AUTOSEND)) {
+										$fctn="ENVOI";
+										break;
+									}
 								}
 								break;
 							case 'InputMsg':
@@ -960,6 +966,22 @@ class MiniPavi {
 		
 		$posX = (int)@$objCommand->param->x;
 		$posY = (int)@$objCommand->param->y;
+		
+		
+		if (@$objCommand->param->validwith & self::MSK_AUTOSEND) {
+			@$objCommand->param->l = 1;
+			$this->command = $objCommand;
+			$extVdt = self::getVdtPos($posX,$posY);
+			$this->currX=$posX;
+			$this->currY=$posY;
+			$this->count=0;
+			$this->bufferIdx=0;
+			if ($objCommand->param->cursor == 'on')
+				$extVdt.=self::VDT_CURON;
+			else $extVdt.=self::VDT_CUROFF;
+			return $extVdt;
+		}
+		
 		$length = (int)@$objCommand->param->l;
 
 		if ($posX<1 || $posX>40)
