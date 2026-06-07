@@ -931,7 +931,7 @@ class MiniPavi {
 			$this->addToBufferOut($dec.$extVdt);
 		} else $this->addToBufferOut($extVdt);
 		
-		if ($returnVal < 1 || ((@$rJson->directcall == 'yes' || @$rJson->directcall == 'yes-cnx' ) && $this->directCallNum < 5))  {
+		if ($returnVal < 1 || ((@$rJson->directcall == 'yes' || @$rJson->directcall == 'yes-cnx' ) && $this->directCallNum < 100))  {
 			// Appel direct si demandé, ou bien si une commande d'appel exterieur VoIP a échouée
 			$this->directCallNum++;
 			$this->command =false;

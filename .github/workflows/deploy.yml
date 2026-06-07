@@ -1,0 +1,88 @@
+# ============================================================
+# Deploy Minitel (minitel.boursaux.fr) to production
+# ============================================================
+# This workflow deploys the Minitel emulator + PHP services
+# to the VPS Géraldine via rsync over SSH.
+#
+# Excluded from deployment (machine-specific):
+#   - .env / .env.minipavi (Anthropic API key)
+#   - minipavi-base.conf (gateway config with local credentials)
+#   - logs/, stats/, recordings/ (runtime data)
+#   - services/damien/jukebox.db (SQLite, regenerated via web UI)
+# ============================================================
+
+name: Deploy Minitel to production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to Geraldine
+        run: |
+          rsync -avz --delete --no-owner --no-group \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.env' \
+            --exclude='.env.example' \
+            --exclude='.env.minipavi' \
+            --exclude='.envrc' \
+            --exclude='.envrc.*' \
+            --exclude='.DS_Store' \
+            --exclude='*.swp' \
+            --exclude='*.swo' \
+            --exclude='logs/' \
+            --exclude='stats/' \
+            --exclude='recordings/' \
+            --exclude='minipavi-base.conf' \
+            --exclude='services/damien/jukebox.db' \
+            --exclude='.claude/' \
+            --exclude='CLAUDE.md' \
+            --exclude='.gitignore' \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new" \
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/minitel.boursaux.fr/
+
+      - name: Set correct permissions
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "chown -R damien:www-data /var/www/minitel.boursaux.fr/ && \
+             chmod -R u=rwX,g=rX,o=rX /var/www/minitel.boursaux.fr/ && \
+             chmod 640 /var/www/minitel.boursaux.fr/.env 2>/dev/null || true"
+
+      - name: Restart Minitel gateway
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "sudo systemctl restart minipavi-gateway 2>/dev/null || echo 'Gateway not running (first deploy?)'"
+
+      - name: Reload nginx
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "sudo systemctl reload nginx"
+
+      - name: Notify Telegram on success
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="✅ Deploy Minitel réussi: ${{ github.sha }} (${{ github.event.head_commit.message }})"
+
+      - name: Notify Telegram on failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="❌ Deploy Minitel échoué: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

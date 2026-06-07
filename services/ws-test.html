@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>WS Test</title></head>
+<body>
+<h1 id="s">Connecting...</h1>
+<script>
+var ws = new WebSocket('ws://100.113.111.3:1234');
+ws.onopen = function() { document.getElementById('s').textContent = 'CONNECTED!'; };
+ws.onclose = function() { document.getElementById('s').textContent = 'CLOSED'; };
+ws.onerror = function(e) { document.getElementById('s').textContent = 'ERROR'; };
+</script>
+</body></html>

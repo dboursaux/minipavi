@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+	<general>
+		<host>127.0.0.1</host>
+		<verbose>1</verbose>
+		<!-- Default service URL: where the gateway fetches Minitel content.
+		     Local/Pi: http://127.0.0.1:8091/damien/ (PHP built-in server)
+		     VPS:      http://127.0.0.1/damien/       (nginx → PHP-FPM) -->
+		<durl>http://127.0.0.1/damien/</durl>
+		<maxc>20</maxc>
+		<timeout>600</timeout>
+		<maxhisto>40</maxhisto>
+		<wsport>8182</wsport>
+		<httpport>8080</httpport>
+		<!-- CHANGE THESE on each machine -->
+		<httpuser>CHANGE_ME</httpuser>
+		<httppwd>CHANGE_ME</httppwd>
+		<lpath>./logs</lpath>
+		<spath>./stats</spath>
+		<viewer>http://www.minipavi.fr/emulminitel/</viewer>
+	</general>
+	<connecttocmd>
+		<key>CHANGE_ME</key>
+		<extcallurl>http://www.minipavi.fr/EXTcall/</extcallurl>
+		<visukey>CHANGE_ME</visukey>
+	</connecttocmd>
+	<recordings>
+		<rpath>./recordings</rpath>
+	</recordings>
+</config>

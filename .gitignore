@@ -1,0 +1,33 @@
+# Environment
+.env
+.env.minipavi
+.envrc
+.envrc.*
+
+# Runtime data
+logs/
+stats/
+recordings/
+
+# SQLite databases
+*.db
+*.sqlite
+
+# Machine-specific config (see .example)
+minipavi-base.conf
+
+# Jukebox data (local only, regenerated via web UI)
+services/damien/jukebox.db
+
+# System files
+.DS_Store
+*.bak
+*.swp
+*.swo
+
+# Claude Code
+.claude/
+
+# IDE
+.vscode/
+.idea/
