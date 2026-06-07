@@ -22,6 +22,10 @@ if (isset($_REQUEST['url'])) {
 
 // Show keyboard by default on web; hide in kiosk mode (?kiosk=1)
 $showKeyboard = !isset($_REQUEST['kiosk']);
+
+// WebMedia endpoint: gateway HTTP URL for media requests (audio, video, images)
+$wmBase = $isSecure ? 'https' : 'http';
+$webmediaUrl = $wmBase . '://' . $host . '/wm?action=webmedia';
 ?>
 <!DOCTYPE html>
 <html>
@@ -104,7 +108,26 @@ $showKeyboard = !isset($_REQUEST['kiosk']);
       </div>
     </div>
     <div id="keyboard-area">
-      <import src="import/minitel-minipavi-webmedia.html"></import>
+      <div data-minitel="minipaviwebmedia" data-pin="" data-url="<?php echo $webmediaUrl; ?>">
+        <div class="mpwb-status">
+          <div style="padding:0;margin:0;line-height:1;height:15px;display:inline-block;border-radius:0 8px 8px 0;background-color:rgba(0,0,0,0.4);">
+            <span style="font-family:Arial,Helvetica;font-size:11px;font-weight:bold;line-height:15px;margin:0;vertical-align:top;">
+              <span style="color:#d534e4">&nbsp;mini</span><span style="color:#6363c8">PAVI</span> <span style="color:white;font-style:italic;font-weight:normal">WebMedia&nbsp;&nbsp;</span>
+            </span>
+          </div>
+        </div>
+        <div class="mpwb-content">
+          <input type="button" class="mpwb-close" value="X"/>
+          <audio class="mpwb-audioPlayer" controls autoplay></audio>
+          <div class="mpwb-youtubePlayer"></div>
+          <div id="dmPlayerOuter" style="display:none;position:relative;max-width:200px;width:100%;">
+            <div id="dmPlayerId" style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;"></div>
+          </div>
+          <video class="mpwb-videoPlayer" controls playsinline autoplay></video>
+          <img class="mpwb-imgViewer"></img>
+          <button class="mpwb-linkButton" data-filename=""></button>
+        </div>
+      </div>
       <import src="import/minitel-keyboard.html"></import>
     </div>
     <audio class="minitel-beep" data-minitel="beep">
