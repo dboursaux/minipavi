@@ -3,7 +3,6 @@
 $host = $_SERVER['HTTP_HOST'] ?? '127.0.0.1';
 $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
 $wsProto = $isSecure ? 'wss' : 'ws';
-$httpProto = $isSecure ? 'https' : 'http';
 
 // Gateway WebSocket URL: explicit param, or auto-detect from host
 $gw = $_REQUEST['gw'] ?? ($wsProto . '://' . $host . '/ws');
@@ -15,36 +14,96 @@ if (isset($_REQUEST['url'])) {
     // gw provided but no url — just connect to gateway
     $url = $gw;
 } else {
-    // No params: default VPS/web deployment — point to internal damien service
-    $svcUrl = $httpProto . '://' . $host . '/damien/';
+    // No params: default VPS/web deployment
+    // Gateway runs on localhost, use internal URL to avoid loopback through internet
+    $svcUrl = 'http://127.0.0.1/damien/';
     $url = $gw . '?url=' . urlencode($svcUrl);
 }
+
+// Show keyboard by default on web; hide in kiosk mode (?kiosk=1)
+$showKeyboard = !isset($_REQUEST['kiosk']);
 ?>
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Kiosk Minitel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Minitel 3615 DAMIEN</title>
   <link rel="stylesheet" href="css/minitel-keyboard.css" />
   <link rel="stylesheet" href="css/minitel-minipavi-webmedia.css" />
   <link rel="stylesheet" href="css/crt.css" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: black; }
-    x-minitel { display: flex; justify-content: center; align-items: center; width: 100vw; height: 100vh; }
-    #oldeffect { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; }
-    canvas.minitel-screen, canvas.minitel-cursor { width: auto !important; height: 100vh !important; image-rendering: pixelated; image-rendering: crisp-edges; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #202020; }
+    x-minitel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100vw;
+      height: 100vh;
+    }
+    #screen-area {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 1;
+      min-height: 0;
+      width: 100%;
+      background: black;
+    }
+    #oldeffect {
+      display: flex;
+      justify-content: flex-start;
+      align-items: flex-start;
+      height: 100%;
+    }
+    canvas.minitel-screen, canvas.minitel-cursor {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    <?php if ($showKeyboard): ?>
+    /* Web: screen fills available space, keyboard below */
+    #screen-area {
+      flex: 1 1 auto;
+      overflow: hidden;
+    }
+    canvas.minitel-screen, canvas.minitel-cursor {
+      width: auto !important;
+      max-width: 100% !important;
+      height: 100% !important;
+    }
+    #keyboard-area {
+      flex: 0 0 auto;
+      width: 100%;
+      max-width: 50em;
+      padding: 0.3em;
+      background: #202020;
+    }
+    <?php else: ?>
+    /* Kiosk mode: full screen, no keyboard */
+    #screen-area {
+      flex: 1 1 100%;
+    }
+    canvas.minitel-screen, canvas.minitel-cursor {
+      width: auto !important;
+      height: 100vh !important;
+    }
+    #keyboard-area { display: none; }
+    <?php endif; ?>
   </style>
 </head>
 <body>
   <x-minitel id="emul-1" data-socket="<?php echo $url; ?>" data-speed="1200" data-color="true">
-    <div id="oldeffect" class="minitel-oldeffect-off">
-      <canvas class="minitel-screen" data-minitel="screen"></canvas>
-      <canvas class="minitel-cursor" data-minitel="cursor"></canvas>
-      <div id="scanlines" class="minitel-scanlines-off"></div>
-      <div id="crt" class="minitel-crt-off"></div>
+    <div id="screen-area">
+      <div id="oldeffect" class="minitel-oldeffect-off">
+        <canvas class="minitel-screen" data-minitel="screen"></canvas>
+        <canvas class="minitel-cursor" data-minitel="cursor"></canvas>
+        <div id="scanlines" class="minitel-scanlines-off"></div>
+        <div id="crt" class="minitel-crt-off"></div>
+      </div>
     </div>
-    <div style="display:none">
+    <div id="keyboard-area">
       <import src="import/minitel-minipavi-webmedia.html"></import>
       <import src="import/minitel-keyboard.html"></import>
     </div>

@@ -1,6 +1,28 @@
 <?php
 define('JUKEBOX_DB', __DIR__ . '/jukebox.db');
 
+function jukebox_init(): void {
+    $db = new SQLite3(JUKEBOX_DB);
+    $db->exec('CREATE TABLE IF NOT EXISTS albums (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        artist TEXT NOT NULL,
+        album_path TEXT NOT NULL,
+        album_name TEXT,
+        position INTEGER DEFAULT 0,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(artist, album_path)
+    )');
+    $db->exec('CREATE TABLE IF NOT EXISTS radios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        url TEXT NOT NULL,
+        position INTEGER DEFAULT 0,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )');
+    $db->close();
+}
+jukebox_init();
+
 function jukebox_list(): array {
     $db = new SQLite3(JUKEBOX_DB);
     $res = $db->query('SELECT artist, album_path, album_name FROM albums ORDER BY position, artist, album_name');

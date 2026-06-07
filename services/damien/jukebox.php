@@ -19,13 +19,19 @@ function jb_trunc(string $text, int $maxLen): string {
     return substr($text, 0, $maxLen - 1) . '.';
 }
 
-function jb_play_album(string $album_path): string {
+function jb_play_album(string $album_path, bool $isWeb = false): string {
+    if ($isWeb) {
+        return "Albums non disponibles sur le web";
+    }
     $esc = escapeshellarg($album_path);
     exec("/usr/bin/mpc clear 2>/dev/null; /usr/bin/mpc search base $esc 2>/dev/null | /usr/bin/mpc add 2>/dev/null; /usr/bin/mpc play 2>/dev/null >/dev/null 2>&1 &");
     return "Lance !";
 }
 
-function jb_play_radio(string $url): string {
+function jb_play_radio(string $url, bool $isWeb = false): string {
+    if ($isWeb) {
+        return "__WEBMEDIA_SND__:$url";
+    }
     $esc = escapeshellarg($url);
     exec("/usr/bin/mpc clear 2>/dev/null; /usr/bin/mpc add $esc 2>/dev/null; /usr/bin/mpc play 2>/dev/null >/dev/null 2>&1 &");
     return "Lance !";
@@ -35,6 +41,9 @@ try {
     MiniPaviCli::start();
     $fctn = MiniPaviCli::$fctn;
     if ($fctn === 'FIN') exit;
+
+    // Détection environnement : web (VPS) vs kiosk (Andre)
+    $isWeb = (getenv('MINITEL_ENV') === 'web');
 
     $menu = 'http://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . '/';
     $self = 'http://' . $_SERVER['HTTP_HOST'] . $_SERVER['PHP_SELF'];
@@ -71,8 +80,12 @@ try {
         }
         if ($fctn === 'ENVOI') {
             if ($input === '1') {
-                $step = 'albums'; $page = 0; $message = '';
-                $context = ['step' => 'albums', 'page' => 0, 'message' => '', '_skip' => true];
+                if ($isWeb) {
+                    $message = 'Albums non disponibles sur le web';
+                } else {
+                    $step = 'albums'; $page = 0; $message = '';
+                    $context = ['step' => 'albums', 'page' => 0, 'message' => '', '_skip' => true];
+                }
             } elseif ($input === '2') {
                 $step = 'radios'; $page = 0; $message = '';
                 $context = ['step' => 'radios', 'page' => 0, 'message' => '', '_skip' => true];
@@ -85,6 +98,11 @@ try {
 
     // === MODE ALBUMS ===
     if ($step === 'albums') {
+        if ($isWeb) {
+            // Albums indisponibles sur le web, retour au sous-menu
+            $context = ['step' => 'menu', 'page' => 0, 'message' => 'Albums non disponibles sur le web'];
+            $step = 'menu';
+        } else {
         $allAlbums = jukebox_list();
         $totalPages = max(1, (int)ceil(count($allAlbums) / $perPage));
         $skip = ($context['_skip'] ?? false);
@@ -100,8 +118,10 @@ try {
                 $idx = $page * $perPage + $choice - 1;
                 if ($idx < count($allAlbums)) {
                     $album = $allAlbums[$idx];
-                    $result = jb_play_album($album['album_path']);
-                    $message = "Lecture: " . jb_trunc(($album['album_name'] ?? $album['album_path']), 50) . " (" . $result . ")";
+                    $result = jb_play_album($album['album_path'], $isWeb);
+                    $message = ($result === '__WEBMEDIA_SND__:')
+                        ? $album['album_path']  // fallback: album path
+                        : "Lecture: " . jb_trunc(($album['album_name'] ?? $album['album_path']), 50) . " (" . $result . ")";
                 }
             }
         }
@@ -111,6 +131,7 @@ try {
             unset($context['_skip']);
             $context = array_merge($context, ['step' => 'albums', 'page' => $page, 'message' => $message]);
         }
+        } // fin du else ($isWeb) pour albums
     }
 
     // === MODE RADIOS ===
@@ -130,8 +151,14 @@ try {
                 $idx = $page * $perPage + $choice - 1;
                 if ($idx < count($allRadios)) {
                     $radio = $allRadios[$idx];
-                    $result = jb_play_radio($radio['url']);
-                    $message = "Lecture: " . jb_trunc($radio['name'], 50) . " (" . $result . ")";
+                    $result = jb_play_radio($radio['url'], $isWeb);
+                    $message = "Lecture: " . jb_trunc($radio['name'], 50);
+                    if (str_starts_with($result, '__WEBMEDIA_SND__:')) {
+                        $context['_webmedia_snd'] = substr($result, 18);
+                        $message .= " (web)";
+                    } else {
+                        $message .= " (" . $result . ")";
+                    }
                 }
             }
         }
@@ -146,6 +173,12 @@ try {
     // === CONSTRUCTION ÉCRAN ===
     $vdt .= MiniPaviCli::clearScreen() . PRO_MIN . PRO_LOCALECHO_OFF . VDT_CUROFF;
 
+    // Injecter le WebMedia sound si demandé (radio web)
+    if (!empty($context['_webmedia_snd'])) {
+        $vdt .= MiniPaviCli::webMediaSound($context['_webmedia_snd']);
+        unset($context['_webmedia_snd']);
+    }
+
     // Barre de statut
     $vdt .= MiniPaviCli::writeLine0('*** 3615 DAMIEN — JUKEBOX ***');
 
@@ -159,7 +192,11 @@ try {
         // Sous-menu
         $vdt .= MiniPaviCli::setPos(1, 4) . VDT_TXTCYAN . str_repeat('=', 40);
         $vdt .= MiniPaviCli::setPos(1, 5) . VDT_TXTYELLOW . jb_centre('CHOISISSEZ UN MODE', 40);
-        $vdt .= MiniPaviCli::setPos(1, 7) . VDT_TXTCYAN . VDT_FDINV . ' 1 ' . VDT_FDNORM . VDT_TXTWHITE . '  ALBUMS';
+        if ($isWeb) {
+            $vdt .= MiniPaviCli::setPos(1, 7) . VDT_TXTCYAN . VDT_FDINV . ' 1 ' . VDT_FDNORM . VDT_TXTWHITE . '  ALBUMS (non dispo.)';
+        } else {
+            $vdt .= MiniPaviCli::setPos(1, 7) . VDT_TXTCYAN . VDT_FDINV . ' 1 ' . VDT_FDNORM . VDT_TXTWHITE . '  ALBUMS';
+        }
         $vdt .= MiniPaviCli::setPos(7, 8) . VDT_TXTGREEN . 'Vos albums preferes';
         $vdt .= MiniPaviCli::setPos(1, 10) . VDT_TXTCYAN . VDT_FDINV . ' 2 ' . VDT_FDNORM . VDT_TXTWHITE . '  RADIOS';
         $vdt .= MiniPaviCli::setPos(7, 11) . VDT_TXTGREEN . 'Radios francaises';
